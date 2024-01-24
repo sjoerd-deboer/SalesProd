@@ -57,7 +57,11 @@ class Parser:
 
             # Parse file
             parsed_table = self.parse_file(table_name, file_name)
-            print(f'Parsed {table_name} successfully: {parsed_table}')
+
+            if parsed_table is not None:
+                print(f'Parsed {table_name} successfully: {parsed_table}')
+            else:
+                print(f'Error parsing {table_name} ({file_name})')
 
         return self.parsed_files
 
@@ -76,6 +80,12 @@ class Parser:
             return self.parse_product_vendor_table(file_path)
         elif table_name == constants.SALES_ORDER_DETAIL:
             return self.parse_sales_order_detail_table(file_path)
+        elif table_name == constants.SALES_ORDER_HEADER:
+            return self.parse_sales_order_header_table(file_path)
+        elif table_name == constants.SALES_TERRITORY:
+            return self.parse_sales_territory_table(file_path)
+        elif table_name == constants.SPECIAL_OFFER:
+            return self.parse_special_offer_table(file_path)
 
     def remove_parsed_file(self, table_name) -> None:
         if table_name in self.parsed_files.keys():
@@ -136,4 +146,31 @@ class Parser:
         self.parsed_files[constants.SALES_ORDER_DETAIL] = ParsedFile(file_path,
                                                                      constants.SALES_ORDER_DETAIL_UNIQUE_COLUMNS,
                                                                      df)
+        return df.shape
+
+    def parse_sales_order_header_table(self, file_path) -> tuple:
+        column_names = constants.SALES_ORDER_HEADER_COLUMN_NAMES
+        df = pd.read_csv(file_path, index_col=False, sep='\t', header=None, names=column_names, encoding='utf-8')
+        # Add df to parsed_files
+        self.parsed_files[constants.SALES_ORDER_HEADER] = ParsedFile(file_path,
+                                                                     constants.SALES_ORDER_HEADER_UNIQUE_COLUMNS,
+                                                                     df)
+        return df.shape
+
+    def parse_sales_territory_table(self, file_path) -> tuple:
+        column_names = constants.SALES_TERRITORY_COLUMN_NAMES
+        df = pd.read_csv(file_path, index_col=False, sep='\t', header=None, names=column_names, encoding='utf-8')
+        # Add df to parsed_files
+        self.parsed_files[constants.SALES_TERRITORY] = ParsedFile(file_path,
+                                                                  constants.SALES_TERRITORY_UNIQUE_COLUMNS,
+                                                                  df)
+        return df.shape
+
+    def parse_special_offer_table(self, file_path) -> tuple:
+        column_names = constants.SPECIAL_OFFER_COLUMN_NAMES
+        df = pd.read_csv(file_path, index_col=False, sep='\t', header=None, names=column_names, encoding='utf-8')
+        # Add df to parsed_files
+        self.parsed_files[constants.SPECIAL_OFFER] = ParsedFile(file_path,
+                                                                constants.SPECIAL_OFFER_UNIQUE_COLUMNS,
+                                                                df)
         return df.shape
