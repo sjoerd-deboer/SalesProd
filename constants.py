@@ -55,7 +55,7 @@ SALES_ORDER_HEADER = 'sales-order-header'
 SALES_ORDER_HEADER_FILE = 'SalesOrderHeader.csv'
 SALES_ORDER_HEADER_UNIQUE_COLUMNS = ['sales_order_id']
 SALES_ORDER_HEADER_COLUMN_NAMES = ['sales_order_id', 'revision_number', 'order_date', 'due_date', 'ship_date', 'status',
-                                   'online_order_flag', 'purchase_order_number', 'account_number', 'customer_id',
+                                   'online_order_flag', 'unknown_col', 'purchase_order_number', 'account_number', 'customer_id',
                                    'salesperson_id', 'territory_id', 'bill_to_address_id', 'ship_to_address_id',
                                    'ship_method_id', 'creditcard_id', 'creditcard_approval_code', 'currency_rate_id',
                                    'subtotal', 'tax_amt', 'freight', 'total_due', 'comment', 'row_guid',
@@ -74,3 +74,9 @@ SPECIAL_OFFER_FILE = 'SpecialOffer.csv'
 SPECIAL_OFFER_UNIQUE_COLUMNS = ['special_offer_id']
 SPECIAL_OFFER_COLUMN_NAMES = ['special_offer_id', 'description', 'discount_pct', 'type', 'category', 'start_date',
                               'end_date', 'min_qty', 'max_qty', 'row_guid', 'modified_date']
+
+# Seasons
+SEASONS = 'seasons'
+SEASONS_FILE = 'Seasons.csv'
+SEASONS_UNIQUE_COLUMNS = []
+# SEASONS_COLUMN_NAMES = ['location', 'season', 'start', 'end']

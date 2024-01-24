@@ -4,6 +4,10 @@ import constants
 from SalesProd.Services.Enricher import Enricher
 from Services.Parser import Parser, ParsedFile
 from pandas import DataFrame
+from tqdm import tqdm
+from sqlalchemy import create_engine
+
+tqdm.pandas()
 
 
 def remove_duplicates(pf: dict) -> None:
@@ -102,11 +106,11 @@ def create_product_table(p: Parser) -> pd.DataFrame:
     new_df['productID'] = product_df['product_id']
     new_df['productSubcategoryID'] = product_df['product_subcategory_id']
     new_df['name'] = product_df['name']
+    new_df = convert_column_to_numeric(new_df, ['productSubcategoryID'])
 
     return new_df
 
 
-# TODO: implement this method
 def create_sales_order_detail_table(p: Parser) -> pd.DataFrame:
     print(f'Creating SalesOrderDetail table...')
     pf = p.parsed_files
@@ -119,39 +123,27 @@ def create_sales_order_detail_table(p: Parser) -> pd.DataFrame:
                                                        'special_offer_id'])
     # Merge with sales_order_header_df to get territory_id
     sales_order_header_df = pf[constants.SALES_ORDER_HEADER].df
+
     sales_order_header_df = sales_order_header_df[['sales_order_id', 'territory_id']]
     merged_df = pd.merge(sales_order_detail_df, sales_order_header_df, left_on='sales_order_id',
                          right_on='sales_order_id', how='inner')
     merged_df = convert_column_to_numeric(merged_df, ['territory_id'])
-    print(merged_df.head(10))
 
-    # Merge with sales_territory_df to get territory_name
-    sales_territory_df = pf[constants.SALES_TERRITORY].df
-    sales_territory_df = sales_territory_df[['territory_id', 'name']]
-    print(sales_territory_df.head(10))
-    sales_territory_df = sales_territory_df.rename(columns={'name': 'territory'})
-    merged_df = pd.merge(merged_df, sales_territory_df, left_on='territory_id', right_on='territory_id',
-                         how='inner')
-    print(merged_df.head(10))
+    # Calculate the season based on the order_date
+    merged_df['season'] = merged_df.progress_apply(lambda row: get_season(row['order_date'], p, row['territory_id']),
+                                                   axis=1)
+    new_df = DataFrame()
+    new_df['salesOrderDetailID'] = merged_df['sales_order_detail_id']
+    new_df['salesOrderID'] = merged_df['sales_order_id']
+    new_df['productID'] = merged_df['product_id']
+    new_df['specialOfferID'] = merged_df['special_offer_id']
+    new_df['territoryID'] = merged_df['territory_id']
+    new_df['orderQty'] = merged_df['order_qty']
+    new_df['unitPriceDiscount'] = merged_df['unit_price_discount']
+    new_df['orderDate'] = merged_df['order_date']
+    new_df['season'] = merged_df['season']
 
-    # TODO: Merge with product
-    product_df = pf[constants.PRODUCT_TABLE].df
-    product_df = convert_column_to_numeric(product_df, ['product_id'])
-    merged_df = pd.merge(merged_df, product_df, left_on='product_id', right_on='product_id',
-                         how='outer')
-    # TODO: Merge with sales_territory
-    sales_territory_df = pf[constants.SALES_TERRITORY].df
-    sales_territory_df = convert_column_to_numeric(sales_territory_df, ['territory_id'])
-    merged_df = pd.merge(merged_df, sales_territory_df, left_on='territory_id', right_on='territory_id',
-                         how='outer')
-    # TODO: Merge with special_offer
-    special_offer_df = pf[constants.SPECIAL_OFFER].df
-    special_offer_df = convert_column_to_numeric(special_offer_df, ['special_offer_id'])
-    merged_df = pd.merge(merged_df, special_offer_df, left_on='special_offer_id', right_on='special_offer_id',
-                         how='outer')
-
-    # Join tables
-    return merged_df
+    return new_df
 
 
 def convert_column_to_numeric(df: pd.DataFrame, column_names: list) -> pd.DataFrame:
@@ -166,7 +158,28 @@ def convert_column_to_numeric(df: pd.DataFrame, column_names: list) -> pd.DataFr
     return df_copy
 
 
+def get_season(order_date: pd.Timestamp, p: Parser, territory_id: int) -> str:
+    month = order_date.month
+    seasons_df = p.parsed_files[constants.SEASONS].df
+    seasons_df = seasons_df[seasons_df['month'] == month]
+    if territory_id == 9:
+        season = seasons_df[seasons_df['location'] == 'southern hemisphere']
+    else:
+        season = seasons_df[seasons_df['location'] == 'northern hemisphere']
+    temp = season['season'].iloc[0]
+    return temp
+
+
 if __name__ == '__main__':
+    # Connecting to the database
+    driver = 'postgresql'
+    username = 'dab_ds23241a_144'
+    dbname = username
+    password = 'f8QXeCZAEsgAclBZ'
+    server = 'bronto.ewi.utwente.nl'
+    port = '5432'
+    engine = create_engine(f'{driver}://{username}:{password}@{server}:{port}/{dbname}')
+
     # Parse files
     parser = Parser()
     parser.add_file(constants.EMPLOYEE_TABLE, constants.EMPLOYEE_TABLE_FILE)
@@ -177,9 +190,8 @@ if __name__ == '__main__':
     parser.add_file(constants.SALES_ORDER_HEADER, constants.SALES_ORDER_HEADER_FILE)
     parser.add_file(constants.SALES_TERRITORY, constants.SALES_TERRITORY_FILE)
     parser.add_file(constants.SPECIAL_OFFER, constants.SPECIAL_OFFER_FILE)
+    parser.add_file(constants.SEASONS, constants.SEASONS_FILE)
     parser.parse()
-
-    print(parser.parsed_files[constants.SALES_ORDER_HEADER].df.head(5))
 
     # Remove duplicate rows
     remove_duplicates(parser.parsed_files)
@@ -199,3 +211,26 @@ if __name__ == '__main__':
     product_subcategory_table = create_product_subcategory_table(parser)
     product_table = create_product_table(parser)
     sales_order_detail_table = create_sales_order_detail_table(parser)
+
+    # Adding the employee to the database
+    print('Adding the employee to the database...')
+    employee_table.to_sql('employee', engine, schema='Project_DEP', index=False, if_exists='replace')
+    # Adding the product to the database
+    print('Adding the product to the database...')
+    product_table.to_sql('product', engine, schema='Project_DEP', index=False, if_exists='replace')
+    # Adding the productcategory to the database
+    print('Adding the productcategory to the database...')
+    product_category_table.to_sql('productcategory', engine, schema='Project_DEP', index=False, if_exists='replace')
+    # Adding the productsubcategory to the database
+    print('Adding the productsubcategory to the database...')
+    product_subcategory_table.to_sql('productsubcategory', engine, schema='Project_DEP', index=False,
+                                     if_exists='replace')
+    # Adding the salesorderdetail to the database
+    print('Adding the salesorderdetail to the database...')
+    sales_order_detail_table.to_sql('salesorderdetail', engine, schema='Project_DEP', index=False, if_exists='replace')
+    # Adding the salesterritory to the database
+    print('Adding the salesterritory to the database...')
+    sales_territory_table.to_sql('salesterritory', engine, schema='Project_DEP', index=False, if_exists='replace')
+    # Adding the specialoffer to the database
+    print('Adding the specialoffer to the database...')
+    special_offer_table.to_sql('specialoffer', engine, schema='Project_DEP', index=False, if_exists='replace')

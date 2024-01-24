@@ -86,6 +86,8 @@ class Parser:
             return self.parse_sales_territory_table(file_path)
         elif table_name == constants.SPECIAL_OFFER:
             return self.parse_special_offer_table(file_path)
+        elif table_name == constants.SEASONS:
+            return self.parse_seasons_table(file_path)
 
     def remove_parsed_file(self, table_name) -> None:
         if table_name in self.parsed_files.keys():
@@ -173,4 +175,12 @@ class Parser:
         self.parsed_files[constants.SPECIAL_OFFER] = ParsedFile(file_path,
                                                                 constants.SPECIAL_OFFER_UNIQUE_COLUMNS,
                                                                 df)
+        return df.shape
+
+    def parse_seasons_table(self, file_path) -> tuple:
+        df = pd.read_csv(file_path, index_col=False, sep=',', header=0, encoding='utf-8')
+        # Add df to parsed_files
+        self.parsed_files[constants.SEASONS] = ParsedFile(file_path,
+                                                          constants.SEASONS_UNIQUE_COLUMNS,
+                                                          df)
         return df.shape

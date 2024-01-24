@@ -23,5 +23,3 @@ class Enricher:
         # Assign the new dataframe to the parsed file object
         self.parsed_files[file_name].df = df
 
-    # TODO: add longitute and latitude columns to SalesTerritory
-    # TODO: add temperature column to SalesOrderDetail
